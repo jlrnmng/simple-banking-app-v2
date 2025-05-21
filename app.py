@@ -25,7 +25,12 @@ pymysql.install_as_MySQLdb()
 # Create Flask application
 def create_app():
     app = Flask(__name__)
+#==================================================================================================  
+#Log Missing SECRET_KEY if SECRET_KEY isn’t set, warn developers.
+    if 'SECRET_KEY' not in os.environ:
+        print("WARNING: SECRET_KEY not set. Using insecure random key.")
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
+#==================================================================================================  
 
     # CSRF Protection
     csrf.init_app(app)
@@ -34,11 +39,19 @@ def create_app():
 
     # Construct the MySQL URL from individual environment variables if DATABASE_URL is not provided
     # Use defaults to avoid None values
-    mysql_user = os.environ.get('MYSQL_USER', '')
-    mysql_password = os.environ.get('MYSQL_PASSWORD', '')
-    mysql_host = os.environ.get('MYSQL_HOST', '')  # Default to localhost if not set
+#==================================================================================================    
+#Improve Environment Variable Handling to avoid silent failures if a required environment variable is not set.
+    required_env_vars = ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_HOST', 'MYSQL_DATABASE']
+    missing = [var for var in required_env_vars if not os.environ.get(var)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+    mysql_user = os.environ['MYSQL_USER']
+    mysql_password = os.environ['MYSQL_PASSWORD']
+    mysql_host = os.environ['MYSQL_HOST']
     mysql_port = os.environ.get('MYSQL_PORT', '3306')
-    mysql_database = os.environ.get('MYSQL_DATABASE', '')
+    mysql_database = os.environ['MYSQL_DATABASE']
+#==================================================================================================
     
     # Make sure all values are strings
     mysql_port = str(mysql_port)
