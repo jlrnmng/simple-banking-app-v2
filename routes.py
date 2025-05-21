@@ -11,30 +11,32 @@ from functools import wraps
 import psgc_api
 import datetime
 
+#==================================================================================================
 # Context processor to provide current year to all templates
+# This adds the current year to the template context for dynamic footers, etc.
 @app.context_processor
 def inject_year():
     return {'current_year': datetime.datetime.now().year}
+#==================================================================================================
 
-# Admin required decorator
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash('You need to be an admin to access this page.')
-            return redirect(url_for('index'))
-        return f(*args, **kwargs)
-    return decorated_function
+#==================================================================================================
+# Generic role checking decorator to prevent code duplication
+def role_required(role_name):
+    def wrapper(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or not getattr(current_user, role_name, False):
+                flash(f'You need to be a {role_name.replace("_", " ")} to access this page.')
+                app.logger.warning(f"Unauthorized {role_name} access attempt by user: {getattr(current_user, 'username', 'Anonymous')}")
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return wrapper
 
-# Manager required decorator
-def manager_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_manager:
-            flash('You need to be a manager to access this page.')
-            return redirect(url_for('index'))
-        return f(*args, **kwargs)
-    return decorated_function
+# Define admin and manager decorators using the generic role_required
+admin_required = role_required('is_admin')
+manager_required = role_required('is_manager')
+#==================================================================================================
 
 # Email functionality (simulated for this example)
 def send_password_reset_email(user):
