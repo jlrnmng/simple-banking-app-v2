@@ -1,9 +1,11 @@
+
 from extensions import db, bcrypt
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
 import random
 import string
+from utils.encryption import encrypt, decrypt
 
 def generate_account_number():
     """Generate a random 10-digit account number"""
@@ -12,7 +14,7 @@ def generate_account_number():
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, index=True)
-    email = db.Column(db.String(120), unique=True, index=True)
+    _email = db.Column("email", db.String(256), unique=True, index=True)
     firstname = db.Column(db.String(64), nullable=True)
     lastname = db.Column(db.String(64), nullable=True)
     # Detailed address fields
@@ -26,7 +28,7 @@ class User(UserMixin, db.Model):
     barangay_code = db.Column(db.String(20), nullable=True)
     barangay_name = db.Column(db.String(100), nullable=True)
     postal_code = db.Column(db.String(10), nullable=True)
-    phone = db.Column(db.String(20), nullable=True)
+    _phone = db.Column("phone", db.String(256), nullable=True)
     password_hash = db.Column(db.String(128))
     account_number = db.Column(db.String(10), unique=True, default=generate_account_number)
     balance = db.Column(db.Float, default=1000.0)  # Match schema.sql default of 1000.0
@@ -36,6 +38,22 @@ class User(UserMixin, db.Model):
     date_registered = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     transactions_sent = db.relationship('Transaction', foreign_keys='Transaction.sender_id', backref='sender', lazy='dynamic')
     transactions_received = db.relationship('Transaction', foreign_keys='Transaction.receiver_id', backref='receiver', lazy='dynamic')
+    
+    @property
+    def email(self):
+        return decrypt(self._email)
+    
+    @email.setter
+    def email(self, value):
+        self._email = encrypt(value)
+    
+    @property
+    def phone(self):
+        return decrypt(self._phone)
+    
+    @phone.setter
+    def phone(self, value):
+        self._phone = encrypt(value)
     
     @property
     def full_address(self):
@@ -155,4 +173,4 @@ class Transaction(db.Model):
     details = db.Column(db.Text, nullable=True)  # For storing additional details (e.g., fields modified)
     
     def __repr__(self):
-        return f'<Transaction {self.id} - {self.amount}>' 
+        return f'<Transaction {self.id} - {self.amount}>'
