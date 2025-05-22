@@ -30,6 +30,11 @@ def create_app():
     if 'SECRET_KEY' not in os.environ:
         print("WARNING: SECRET_KEY not set. Using insecure random key.")
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
+
+    # Set secure session cookie flags
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 #==================================================================================================  
 
     # CSRF Protection
