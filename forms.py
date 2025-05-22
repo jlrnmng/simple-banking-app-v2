@@ -1,22 +1,21 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, FloatField, RadioField, SelectField, HiddenField
-from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, NumberRange, Optional
+from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp, Length
 from models import User
 
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    username = StringField('Username', validators=[DataRequired(), Regexp(r'^[a-zA-Z0-9_]+$', message="Username must contain only letters, numbers, and underscores"), Length(min=3, max=30)])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=8, max=128)])
     submit = SubmitField('Login')
 
     def validate(self, extra_validators=None):
         return super(LoginForm, self).validate()
 
 class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField(
-        'Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    username = StringField('Username', validators=[DataRequired(), Regexp(r'^[a-zA-Z0-9_]+$', message="Username must contain only letters, numbers, and underscores"), Length(min=3, max=30)])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=255)])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=8, max=128)])
+    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
 
     def validate_username(self, username):
@@ -36,8 +35,8 @@ class TransferForm(FlaskForm):
     transfer_type = RadioField('Transfer Type', 
                               choices=[('username', 'By Username'), ('account', 'By Account Number')],
                               default='username')
-    recipient_username = StringField('Recipient Username', validators=[Optional()])
-    recipient_account = StringField('Recipient Account Number', validators=[Optional()])
+    recipient_username = StringField('Recipient Username', validators=[Optional(), Regexp(r'^[a-zA-Z0-9_]+$', message="Username must contain only letters, numbers, and underscores"), Length(min=3, max=30)])
+    recipient_account = StringField('Recipient Account Number', validators=[Optional(), Regexp(r'^[0-9]+$', message="Account number must contain only digits"), Length(min=6, max=20)])
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01, message="Amount must be greater than 0")])
     submit = SubmitField('Transfer')
 
@@ -74,23 +73,22 @@ class TransferForm(FlaskForm):
         return True
 
 class ResetPasswordRequestForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=255)])
     submit = SubmitField('Request Password Reset')
 
     def validate(self, extra_validators=None):
         return super(ResetPasswordRequestForm, self).validate()
 
 class ResetPasswordForm(FlaskForm):
-    password = PasswordField('New Password', validators=[DataRequired()])
-    password2 = PasswordField(
-        'Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=8, max=128)])
+    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Reset Password')
 
     def validate(self, extra_validators=None):
         return super(ResetPasswordForm, self).validate()
 
 class DepositForm(FlaskForm):
-    account_number = StringField('Account Number', validators=[DataRequired()])
+    account_number = StringField('Account Number', validators=[DataRequired(), Regexp(r'^[0-9]+$', message="Account number must contain only digits"), Length(min=6, max=20)])
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01, message="Amount must be greater than 0")])
     submit = SubmitField('Deposit')
     
@@ -107,13 +105,13 @@ class DepositForm(FlaskForm):
         return True
 
 class UserEditForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    firstname = StringField('First Name', validators=[Optional()])
-    lastname = StringField('Last Name', validators=[Optional()])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=255)])
+    firstname = StringField('First Name', validators=[Optional(), Length(max=50)])
+    lastname = StringField('Last Name', validators=[Optional(), Length(max=50)])
     
     # Detailed address fields
-    address_line = StringField('Street Address', validators=[Optional()])
-    postal_code = StringField('Postal Code', validators=[Optional()])
+    address_line = StringField('Street Address', validators=[Optional(), Length(max=255)])
+    postal_code = StringField('Postal Code', validators=[Optional(), Length(max=20)])
     
     # Hidden fields to store codes
     region_code = HiddenField('Region Code')
@@ -127,7 +125,7 @@ class UserEditForm(FlaskForm):
     city_name = SelectField('City/Municipality', choices=[], validators=[Optional()])
     barangay_name = SelectField('Barangay', choices=[], validators=[Optional()])
     
-    phone = StringField('Phone Number', validators=[Optional()])
+    phone = StringField('Phone Number', validators=[Optional(), Length(max=20)])
     
     # Add status field for admins to change user status
     status = SelectField('Account Status', 
@@ -156,4 +154,4 @@ class ConfirmTransferForm(FlaskForm):
     recipient_account = HiddenField('Recipient Account Number')
     amount = HiddenField('Amount')
     transfer_type = HiddenField('Transfer Type')
-    submit = SubmitField('Confirm Transfer') 
+    submit = SubmitField('Confirm Transfer')
