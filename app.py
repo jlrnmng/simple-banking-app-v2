@@ -39,7 +39,12 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+    # Set session timeout to 30 minutes
+    from datetime import timedelta
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 #==================================================================================================  
+
 
     # CSRF Protection
     csrf.init_app(app)

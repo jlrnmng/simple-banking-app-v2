@@ -1,15 +1,16 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.urls import url_parse
 from app import app, csrf
 from extensions import db, limiter
-from forms import LoginForm, RegistrationForm, TransferForm, ResetPasswordRequestForm, ResetPasswordForm, DepositForm, UserEditForm, ConfirmTransferForm
+from forms import LoginForm, RegistrationForm, TransferForm, ResetPasswordRequestForm, ResetPasswordForm, DepositForm, UserEditForm, ConfirmTransferForm, MFASetupForm, MFAVerifyForm
 from models import User, Transaction
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 import os
 from functools import wraps
 import psgc_api
 import datetime
+from utils.mfa import generate_totp_secret, get_totp_uri, verify_totp
 
 #==================================================================================================
 # Context processor to provide current year to all templates
@@ -36,6 +37,19 @@ def role_required(role_name):
 # Define admin and manager decorators using the generic role_required
 admin_required = role_required('is_admin')
 manager_required = role_required('is_manager')
+
+# Additional decorator for granular permission checking
+def permission_required(permission_name):
+    def wrapper(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or not current_user.has_permission(permission_name):
+                flash(f'You do not have permission to access this resource.')
+                app.logger.warning(f"Unauthorized access attempt by user: {getattr(current_user, 'username', 'Anonymous')} for permission: {permission_name}")
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return wrapper
 #==================================================================================================
 
 # Email functionality (simulated for this example)
@@ -83,9 +97,11 @@ def login():
                 # Continue with login
             else:
                 flash('Invalid username or password')
+                app.logger.warning(f"Failed login attempt for user: {form.username.data}")
                 return redirect(url_for('login'))
         elif user is None or not user.check_password(form.password.data):
             flash('Invalid username or password')
+            app.logger.warning(f"Failed login attempt for user: {form.username.data}")
             return redirect(url_for('login'))
         
         # Check if user account is active (unless they're an admin or manager)
@@ -95,8 +111,15 @@ def login():
             else:  # deactivated
                 flash('Your account has been deactivated. Please contact an administrator.')
             return redirect(url_for('login'))
-            
+        
+        # Check if user has MFA enabled
+        if user.mfa_enabled:
+            # Store user ID in session for MFA verification
+            session['mfa_user_id'] = user.id
+            return redirect(url_for('mfa_verify'))
+        
         login_user(user)
+        app.logger.info(f"User logged in: {user.username}")
         next_page = request.args.get('next')
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('index')
@@ -105,7 +128,10 @@ def login():
 
 @app.route('/logout')
 def logout():
+    username = current_user.username if current_user.is_authenticated else 'Anonymous'
     logout_user()
+    session.pop('mfa_user_id', None)
+    app.logger.info(f"User logged out: {username}")
     return redirect(url_for('login'))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -117,6 +143,9 @@ def register():
     if form.validate_on_submit():
         user = User(username=form.username.data, email=form.email.data, status='pending')
         user.set_password(form.password.data)
+        # Initialize MFA as disabled
+        user.mfa_enabled = False
+        user.mfa_secret = None
         db.session.add(user)
         db.session.commit()
         flash('Your account has been registered and is awaiting admin approval.')
@@ -275,6 +304,56 @@ def admin_dashboard():
         users = User.query.filter(User.is_admin.is_(False), User.is_manager.is_(False)).all()
     
     return render_template('admin/dashboard.html', title='Admin Dashboard', users=users)
+
+# MFA setup route
+@app.route('/mfa/setup', methods=['GET', 'POST'])
+@login_required
+def mfa_setup():
+    if current_user.mfa_enabled:
+        flash('MFA is already enabled for your account.')
+        return redirect(url_for('index'))
+    
+    if not current_user.mfa_secret:
+        current_user.mfa_secret = generate_totp_secret()
+        db.session.commit()
+    
+    totp_uri = get_totp_uri(current_user.mfa_secret, current_user.username)
+    form = MFASetupForm()
+    if form.validate_on_submit():
+        if verify_totp(form.token.data, current_user.mfa_secret):
+            current_user.mfa_enabled = True
+            db.session.commit()
+            flash('MFA has been enabled for your account.')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid authentication token. Please try again.')
+    
+    return render_template('mfa_setup.html', form=form, totp_uri=totp_uri)
+
+# MFA verification route
+@app.route('/mfa/verify', methods=['GET', 'POST'])
+def mfa_verify():
+    user_id = session.get('mfa_user_id')
+    if not user_id:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(user_id)
+    if not user:
+        return redirect(url_for('login'))
+    
+    form = MFAVerifyForm()
+    if form.validate_on_submit():
+        if verify_totp(form.token.data, user.mfa_secret):
+            login_user(user, remember=form.remember_me.data)
+            session.pop('mfa_user_id', None)
+            next_page = request.args.get('next')
+            if not next_page or url_parse(next_page).netloc != '':
+                next_page = url_for('index')
+            return redirect(next_page)
+        else:
+            flash('Invalid authentication token. Please try again.')
+    
+    return render_template('mfa_verify.html', form=form)
 
 @app.route('/admin/activate_user/<int:user_id>')
 @login_required
