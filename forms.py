@@ -73,8 +73,8 @@ class TransferForm(FlaskForm):
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01, message="Amount must be positive")])
     submit = SubmitField('Transfer')
 
-    def validate(self):
-        rv = FlaskForm.validate(self)
+    def validate(self, extra_validators=None):
+        rv = FlaskForm.validate(self, extra_validators=extra_validators)
         if not rv:
             return False
 
@@ -116,11 +116,15 @@ class UserEditForm(FlaskForm):
     address_line = StringField('Address Line', validators=[Optional(), Length(max=100)])
     postal_code = StringField('Postal Code', validators=[Optional(), Length(max=20)])
     phone = StringField('Phone Number', validators=[Optional(), Regexp(r'^\+?[0-9\s\-]+$', message="Invalid phone number")])
+    region_code = SelectField('Region Code', choices=[], validators=[Optional()])
     region_name = SelectField('Region', choices=[], validators=[Optional()])
+    province_code = SelectField('Province Code', choices=[], validators=[Optional()])
     province_name = SelectField('Province', choices=[], validators=[Optional()])
+    city_code = SelectField('City Code', choices=[], validators=[Optional()])
     city_name = SelectField('City/Municipality', choices=[], validators=[Optional()])
+    barangay_code = SelectField('Barangay Code', choices=[], validators=[Optional()])
     barangay_name = SelectField('Barangay', choices=[], validators=[Optional()])
-    status = SelectField('Status', choices=[('pending', 'Pending'), ('active', 'Active'), ('deactivated', 'Deactivated')], validators=[DataRequired()])
+    status = SelectField('Status', choices=[('pending', 'Pending'), ('active', 'Active'), ('deactivated', 'Deactivated')], validators=[Optional()])
     submit = SubmitField('Update')
 
 class MFASetupForm(FlaskForm):

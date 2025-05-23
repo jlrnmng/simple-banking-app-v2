@@ -35,6 +35,7 @@ class User(UserMixin, db.Model):
     status = db.Column(db.String(20), default='pending')  # 'active', 'deactivated', or 'pending'
     is_admin = db.Column(db.Boolean, default=False)  # Admin status
     is_manager = db.Column(db.Boolean, default=False)  # Manager status (can manage admins)
+    mfa_enabled = db.Column(db.Boolean, default=False)  # MFA enabled flag
     date_registered = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     transactions_sent = db.relationship('Transaction', foreign_keys='Transaction.sender_id', backref='sender', lazy='dynamic')
     transactions_received = db.relationship('Transaction', foreign_keys='Transaction.receiver_id', backref='receiver', lazy='dynamic')
