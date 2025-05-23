@@ -118,6 +118,10 @@ def login():
             session['mfa_user_id'] = user.id
             return redirect(url_for('mfa_verify'))
         
+        # Regenerate session ID on login to prevent session fixation
+        from flask import session as flask_session
+        flask_session.clear()
+        
         login_user(user)
         app.logger.info(f"User logged in: {user.username}")
         next_page = request.args.get('next')
