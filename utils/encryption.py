@@ -1,5 +1,8 @@
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load encryption key from environment variable or generate a new one
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
@@ -15,9 +18,20 @@ fernet = Fernet(ENCRYPTION_KEY.encode())
 def encrypt(data: str) -> str:
     if data is None:
         return None
-    return fernet.encrypt(data.encode()).decode()
+    try:
+        return fernet.encrypt(data.encode()).decode()
+    except Exception as e:
+        logger.error(f"Encryption failed: {e}")
+        raise
 
 def decrypt(token: str) -> str:
     if token is None:
         return None
-    return fernet.decrypt(token.encode()).decode()
+    try:
+        return fernet.decrypt(token.encode()).decode()
+    except InvalidToken:
+        logger.error("Decryption failed: Invalid encryption token")
+        return None
+    except Exception as e:
+        logger.error(f"Decryption failed: {e}")
+        return None

@@ -1,30 +1,48 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, FloatField, RadioField, SelectField, HiddenField
-from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, NumberRange, Optional
+from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp, Length
 from models import User
+from utils.sanitization import sanitize_username, sanitize_email, sanitize_account_number, sanitize_string
 
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    username = StringField('Username', validators=[
+        DataRequired(),
+        Regexp(r'^[A-Za-z0-9_]+$', message="Username must contain only letters, numbers, and underscores"),
+        Length(min=3, max=25)
+    ])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6, max=128)])
     submit = SubmitField('Login')
 
     def validate(self, extra_validators=None):
+        # Sanitize username before validation
+        if self.username.data:
+            self.username.data = sanitize_username(self.username.data)
         return super(LoginForm, self).validate()
 
 class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    username = StringField('Username', validators=[
+        DataRequired(),
+        Regexp(r'^[A-Za-z0-9_]+$', message="Username must contain only letters, numbers, and underscores"),
+        Length(min=3, max=25)
+    ])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6, max=128)])
     password2 = PasswordField(
         'Repeat Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
 
     def validate_username(self, username):
+        # Sanitize username before validation
+        if username.data:
+            username.data = sanitize_username(username.data)
         user = User.query.filter_by(username=username.data).first()
         if user is not None:
             raise ValidationError('Please use a different username.')
 
     def validate_email(self, email):
+        # Sanitize email before validation
+        if email.data:
+            email.data = sanitize_email(email.data)
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
             raise ValidationError('Please use a different email address.')
@@ -36,12 +54,22 @@ class TransferForm(FlaskForm):
     transfer_type = RadioField('Transfer Type', 
                               choices=[('username', 'By Username'), ('account', 'By Account Number')],
                               default='username')
-    recipient_username = StringField('Recipient Username', validators=[Optional()])
-    recipient_account = StringField('Recipient Account Number', validators=[Optional()])
+    recipient_username = StringField('Recipient Username', validators=[
+        Optional(),
+        Regexp(r'^[A-Za-z0-9_]+$', message="Username must contain only letters, numbers, and underscores"),
+        Length(min=3, max=25)
+    ])
+    recipient_account = StringField('Recipient Account Number', validators=[Optional(), Length(min=10, max=20)])
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01, message="Amount must be greater than 0")])
     submit = SubmitField('Transfer')
 
     def validate(self, extra_validators=None):
+        # Sanitize inputs before validation
+        if self.recipient_username.data:
+            self.recipient_username.data = sanitize_username(self.recipient_username.data)
+        if self.recipient_account.data:
+            self.recipient_account.data = sanitize_account_number(self.recipient_account.data)
+
         if not super(TransferForm, self).validate():
             return False
             
@@ -78,10 +106,13 @@ class ResetPasswordRequestForm(FlaskForm):
     submit = SubmitField('Request Password Reset')
 
     def validate(self, extra_validators=None):
+        # Sanitize email before validation
+        if self.email.data:
+            self.email.data = sanitize_email(self.email.data)
         return super(ResetPasswordRequestForm, self).validate()
 
 class ResetPasswordForm(FlaskForm):
-    password = PasswordField('New Password', validators=[DataRequired()])
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=6, max=128)])
     password2 = PasswordField(
         'Repeat Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Reset Password')
@@ -90,11 +121,15 @@ class ResetPasswordForm(FlaskForm):
         return super(ResetPasswordForm, self).validate()
 
 class DepositForm(FlaskForm):
-    account_number = StringField('Account Number', validators=[DataRequired()])
+    account_number = StringField('Account Number', validators=[DataRequired(), Length(min=10, max=20)])
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01, message="Amount must be greater than 0")])
     submit = SubmitField('Deposit')
     
     def validate(self, extra_validators=None):
+        # Sanitize account number before validation
+        if self.account_number.data:
+            self.account_number.data = sanitize_account_number(self.account_number.data)
+
         if not super(DepositForm, self).validate():
             return False
             
@@ -108,12 +143,12 @@ class DepositForm(FlaskForm):
 
 class UserEditForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
-    firstname = StringField('First Name', validators=[Optional()])
-    lastname = StringField('Last Name', validators=[Optional()])
+    firstname = StringField('First Name', validators=[Optional(), Length(max=50)])
+    lastname = StringField('Last Name', validators=[Optional(), Length(max=50)])
     
     # Detailed address fields
-    address_line = StringField('Street Address', validators=[Optional()])
-    postal_code = StringField('Postal Code', validators=[Optional()])
+    address_line = StringField('Street Address', validators=[Optional(), Length(max=100)])
+    postal_code = StringField('Postal Code', validators=[Optional(), Length(max=20)])
     
     # Hidden fields to store codes
     region_code = HiddenField('Region Code')
@@ -127,7 +162,7 @@ class UserEditForm(FlaskForm):
     city_name = SelectField('City/Municipality', choices=[], validators=[Optional()])
     barangay_name = SelectField('Barangay', choices=[], validators=[Optional()])
     
-    phone = StringField('Phone Number', validators=[Optional()])
+    phone = StringField('Phone Number', validators=[Optional(), Length(max=20)])
     
     # Add status field for admins to change user status
     status = SelectField('Account Status', 
@@ -143,6 +178,9 @@ class UserEditForm(FlaskForm):
         self.original_email = original_email
         
     def validate_email(self, email):
+        # Sanitize email before validation
+        if email.data:
+            email.data = sanitize_email(email.data)
         if email.data != self.original_email:
             user = User.query.filter_by(email=email.data).first()
             if user is not None:
@@ -156,4 +194,4 @@ class ConfirmTransferForm(FlaskForm):
     recipient_account = HiddenField('Recipient Account Number')
     amount = HiddenField('Amount')
     transfer_type = HiddenField('Transfer Type')
-    submit = SubmitField('Confirm Transfer') 
+    submit = SubmitField('Confirm Transfer')
