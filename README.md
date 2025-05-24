@@ -2,6 +2,13 @@
 
 A user-friendly and responsive Flask-based banking application designed for deployment on PythonAnywhere. This application allows users to create accounts, perform simulated money transfers between accounts, view transaction history, and securely manage their credentials.
 
+## Youtube Link:
+- https://www.youtube.com/watch?v=z1SUoTf2UNU
+
+## BSCS 3A- Group 10
+- Gonzales, Mark Angelo
+- Manaog, Johnlerein
+- Perina, Rolando
 ## Features
 
 - **User Authentication**
