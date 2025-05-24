@@ -96,6 +96,22 @@ def create_app():
         # Otherwise, return the HTML template
         return render_template('rate_limit_error.html', message=str(e)), 429
 
+    # Global error handler for unhandled exceptions
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.error(f"Unhandled exception: {e}", exc_info=True)
+        # Return generic error message without sensitive details
+        if request.path.startswith('/api/') or request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500
+        return render_template('error.html', message="An unexpected error occurred."), 500
+
+    # Handle 404 errors
+    @app.errorhandler(404)
+    def handle_404(e):
+        if request.path.startswith('/api/') or request.headers.get('Accept') == 'application/json':
+            return jsonify({"error": "Not Found", "message": "The requested resource was not found."}), 404
+        return render_template('404.html'), 404
+
     return app
 
 # Create Flask app
