@@ -168,7 +168,6 @@ def account():
 
 @app.route('/transfer', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("20 per hour")
 def transfer():
     if current_user.status != 'active' and not current_user.is_admin and not current_user.is_manager:
         flash('Your account is awaiting approval from an administrator.')
@@ -217,7 +216,6 @@ def transfer():
 
 @app.route('/execute_transfer', methods=['POST'])
 @login_required
-@limiter.limit("20 per hour")
 def execute_transfer():
     if current_user.status != 'active' and not current_user.is_admin and not current_user.is_manager:
         flash('Your account is awaiting approval from an administrator.')

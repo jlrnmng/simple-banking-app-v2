@@ -109,6 +109,7 @@ class User(UserMixin, db.Model):
                 timestamp=datetime.datetime.utcnow()
             )
             db.session.add(transaction)
+            db.session.flush()  # Ensure transaction is persisted before commit
             return True
         return False
     
