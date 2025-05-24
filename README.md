@@ -270,7 +270,3 @@ By default, the rate limiting data is stored in memory. For production use, it's
 If Redis is not available, the application will automatically fall back to in-memory storage.
 
 ## License
-
-=======
-# simple-banking-app-v2
->>>>>>> 0a122a95dc60c52d1804392210fd455714be2648
