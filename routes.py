@@ -15,6 +15,7 @@ from utils.mfa import generate_totp_secret, get_totp_uri, verify_totp
 #==================================================================================================
 # Context processor to provide current year to all templates
 # This adds the current year to the template context for dynamic footers, etc.
+# Output Encoding: Using Jinja2 templates ensures automatic escaping of variables to prevent XSS.
 @app.context_processor
 def inject_year():
     return {'current_year': datetime.datetime.now().year}
@@ -22,6 +23,7 @@ def inject_year():
 
 #==================================================================================================
 # Generic role checking decorator to prevent code duplication
+# Authentication and Authorization: Role-based access control (RBAC) implemented via decorators.
 def role_required(role_name):
     def wrapper(f):
         @wraps(f)

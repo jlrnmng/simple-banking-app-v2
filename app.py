@@ -30,23 +30,24 @@ pymysql.install_as_MySQLdb()
 def create_app():
     app = Flask(__name__)
 #==================================================================================================  
-#Log Missing SECRET_KEY if SECRET_KEY isn’t set, warn developers.
+# Log Missing SECRET_KEY if SECRET_KEY isn’t set, warn developers.
     if 'SECRET_KEY' not in os.environ:
         print("WARNING: SECRET_KEY not set. Using insecure random key.")
+    # Secure Data Storage: SECRET_KEY is critical for session signing and encryption.
+    # Ensure it is set securely in environment variables and never hardcoded.
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
 
-    # Set secure session cookie flags
-    app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # Session Management: Set secure session cookie flags to protect session cookies.
+    app.config['SESSION_COOKIE_SECURE'] = True  # Ensures cookies are sent over HTTPS only.
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevents JavaScript access to cookies.
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Helps prevent CSRF attacks.
 
-    # Set session timeout to 30 minutes
+    # Session Management: Set session timeout to 30 minutes to reduce risk of hijacking.
     from datetime import timedelta
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 #==================================================================================================  
 
-
-    # CSRF Protection
+    # CSRF Protection: Initialize CSRF protection to secure forms against CSRF attacks.
     csrf.init_app(app)
 
     # Database configuration
@@ -54,7 +55,7 @@ def create_app():
     # Construct the MySQL URL from individual environment variables if DATABASE_URL is not provided
     # Use defaults to avoid None values
 #==================================================================================================    
-#Improve Environment Variable Handling to avoid silent failures if a required environment variable is not set.
+# Improve Environment Variable Handling to avoid silent failures if a required environment variable is not set.
     required_env_vars = ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_HOST', 'MYSQL_DATABASE']
     missing = [var for var in required_env_vars if not os.environ.get(var)]
     if missing:
@@ -83,11 +84,12 @@ def create_app():
     # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)
+    # Authentication and Authorization: Enable strong session protection to prevent session fixation.
     login_manager.session_protection = "strong"  # Enable strong session protection
     bcrypt.init_app(app)
     limiter.init_app(app)
     
-    # Register custom error handler for rate limiting
+    # Rate Limiting: Register custom error handler for rate limiting to handle abuse gracefully.
     @app.errorhandler(RateLimitExceeded)
     def handle_rate_limit_exceeded(e):
         # Check if it's an API request (expecting JSON)
@@ -96,7 +98,7 @@ def create_app():
         # Otherwise, return the HTML template
         return render_template('rate_limit_error.html', message=str(e)), 429
 
-    # Global error handler for unhandled exceptions
+    # Error Handling: Global error handler for unhandled exceptions to avoid exposing sensitive info.
     @app.errorhandler(Exception)
     def handle_exception(e):
         app.logger.error(f"Unhandled exception: {e}", exc_info=True)
@@ -105,7 +107,7 @@ def create_app():
             return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred."}), 500
         return render_template('error.html', message="An unexpected error occurred."), 500
 
-    # Handle 404 errors
+    # Error Handling: Handle 404 errors with custom response.
     @app.errorhandler(404)
     def handle_404(e):
         if request.path.startswith('/api/') or request.headers.get('Accept') == 'application/json':

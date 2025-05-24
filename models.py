@@ -14,6 +14,7 @@ def generate_account_number():
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, index=True)
+    # Secure Data Storage: Email is stored encrypted to protect sensitive user information.
     _email = db.Column("email", db.String(256), unique=True, index=True)
     firstname = db.Column(db.String(64), nullable=True)
     lastname = db.Column(db.String(64), nullable=True)
@@ -28,7 +29,9 @@ class User(UserMixin, db.Model):
     barangay_code = db.Column(db.String(20), nullable=True)
     barangay_name = db.Column(db.String(100), nullable=True)
     postal_code = db.Column(db.String(10), nullable=True)
+    # Secure Data Storage: Phone number is stored encrypted to protect sensitive user information.
     _phone = db.Column("phone", db.String(256), nullable=True)
+    # Authentication: Passwords are stored as bcrypt hashes for security.
     password_hash = db.Column(db.String(128))
     account_number = db.Column(db.String(10), unique=True, default=generate_account_number)
     balance = db.Column(db.Float, default=1000.0)  # Match schema.sql default of 1000.0
@@ -42,18 +45,22 @@ class User(UserMixin, db.Model):
     
     @property
     def email(self):
+        # Decrypt email when accessed
         return decrypt(self._email)
     
     @email.setter
     def email(self, value):
+        # Encrypt email when set
         self._email = encrypt(value)
     
     @property
     def phone(self):
+        # Decrypt phone when accessed
         return decrypt(self._phone)
     
     @phone.setter
     def phone(self, value):
+        # Encrypt phone when set
         self._phone = encrypt(value)
     
     @property
@@ -81,11 +88,11 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
     
     def set_password(self, password):
-        # Use bcrypt for secure password hashing with salt
+        # Authentication: Use bcrypt for secure password hashing with salt.
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     
     def check_password(self, password):
-        # Use bcrypt to verify password
+        # Authentication: Use bcrypt to verify password.
         return bcrypt.check_password_hash(self.password_hash, password)
     
     @property
@@ -94,13 +101,12 @@ class User(UserMixin, db.Model):
         return self.status == 'active'
     
     def transfer_money(self, recipient, amount):
-        # Allow transfers if: 
-        # 1. User has sufficient balance
-        # 2. Amount is positive
-        # 3. User is either active OR an admin OR a manager
+        # Business logic for money transfer with checks for balance and status.
+        # Authorization: Only active users, admins, or managers can transfer money.
         if self.balance >= amount and amount > 0 and (self.status == 'active' or self.is_admin or self.is_manager):
             self.balance -= amount
             recipient.balance += amount
+            # Audit: Create a transaction record for transfer.
             transaction = Transaction(
                 sender_id=self.id,
                 receiver_id=recipient.id,
@@ -121,7 +127,7 @@ class User(UserMixin, db.Model):
         # Add amount to user's balance
         self.balance += amount
         
-        # Create a transaction record (from admin to user)
+        # Audit: Create a transaction record for deposit.
         transaction = Transaction(
             sender_id=admin_user.id,
             receiver_id=self.id,
@@ -133,6 +139,7 @@ class User(UserMixin, db.Model):
         return True
     
     def get_recent_transactions(self, limit=10):
+        # Retrieve recent transactions excluding user edits.
         sent = self.transactions_sent.filter(Transaction.transaction_type != 'user_edit').order_by(Transaction.timestamp.desc()).limit(limit).all()
         received = self.transactions_received.filter(Transaction.transaction_type != 'user_edit').order_by(Transaction.timestamp.desc()).limit(limit).all()
         all_transactions = sorted(sent + received, key=lambda x: x.timestamp, reverse=True)
