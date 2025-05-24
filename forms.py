@@ -5,6 +5,8 @@ from models import User
 from utils.sanitization import sanitize_username, sanitize_email, sanitize_account_number, sanitize_string
 import re
 
+# Form validation and sanitization to prevent injection and enforce strong passwords.
+
 class StrongPassword(object):
     def __init__(self, message=None):
         if not message:
@@ -13,6 +15,7 @@ class StrongPassword(object):
 
     def __call__(self, form, field):
         password = field.data
+        # Enforce strong password policy to enhance security.
         if (len(password) < 8 or
             not re.search(r'[A-Z]', password) or
             not re.search(r'[a-z]', password) or
@@ -30,7 +33,7 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Login')
 
     def validate(self, extra_validators=None):
-        # Sanitize username before validation
+        # Sanitize username before validation to prevent injection.
         if self.username.data:
             self.username.data = sanitize_username(self.username.data)
         return super(LoginForm, self).validate()
@@ -48,7 +51,7 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField('Register')
 
     def validate_username(self, username):
-        # Sanitize username before validation
+        # Sanitize username before validation to prevent injection.
         if username.data:
             username.data = sanitize_username(username.data)
         user = User.query.filter_by(username=username.data).first()
@@ -56,7 +59,7 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Please use a different username.')
 
     def validate_email(self, email):
-        # Sanitize email before validation
+        # Sanitize email before validation to prevent injection.
         if email.data:
             email.data = sanitize_email(email.data)
         user = User.query.filter_by(email=email.data).first()
